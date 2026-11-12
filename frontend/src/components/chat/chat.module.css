@@ -743,6 +743,7 @@
 }
 
 /* 모바일 채팅 입력창 개선 */
+
 @media (max-width: 650px) {
   /* 입력 시 화면 자동 확대 방지 */
   .composerBottom :global(.input) {
@@ -760,6 +761,11 @@
     max-width: 100%;
   }
 
+  .composerBottom :global(.input) {
+    flex: 1;
+    min-width: 0;
+    width: 0;
+  }
   .send {
     flex-shrink: 0;
   }

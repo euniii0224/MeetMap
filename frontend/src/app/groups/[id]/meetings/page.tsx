@@ -913,7 +913,9 @@ export default function GroupMeetingsPage() {
                       />
                     ) : (
                       <div
+
                         className="row-between meet-row"
+
                         style={{ gap: 16, flexWrap: 'wrap' }}
                       >
                         <div
