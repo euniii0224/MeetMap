@@ -1,87 +1,87 @@
-"use client";
+'use client'
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { api, ApiError } from "@/lib/api";
-import AppShell from "@/components/AppShell";
-import Avatar from "@/components/Avatar";
-import DateTimePicker from "@/components/chat/DateTimePicker";
-import AvailabilityCalendar from "@/features/calendar/AvailabilityCalendar";
-import AvailabilityMini from "@/features/calendar/AvailabilityMini";
-import mini from "@/features/calendar/availabilityMini.module.css";
-import { useGroupContext, type GroupMember } from "@/hooks/useGroupContext";
-import { pickName, useNameMode, type NameMode } from "@/lib/nameMode";
-import type { PlaceValue } from "@/lib/photos";
-import { usePlaceSearch } from "@/lib/usePlaceSearch";
-import CalIcon from "@/components/CalIcon";
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { api, ApiError } from '@/lib/api'
+import AppShell from '@/components/AppShell'
+import Avatar from '@/components/Avatar'
+import DateTimePicker from '@/components/chat/DateTimePicker'
+import AvailabilityCalendar from '@/features/calendar/AvailabilityCalendar'
+import AvailabilityMini from '@/features/calendar/AvailabilityMini'
+import mini from '@/features/calendar/availabilityMini.module.css'
+import { useGroupContext, type GroupMember } from '@/hooks/useGroupContext'
+import { pickName, useNameMode, type NameMode } from '@/lib/nameMode'
+import type { PlaceValue } from '@/lib/photos'
+import { usePlaceSearch } from '@/lib/usePlaceSearch'
+import CalIcon from '@/components/CalIcon'
 
 type Meeting = {
-  id: number;
-  group_id: number;
-  title: string;
-  location: string;
-  meeting_time: string;
-  status: string;
-  created_by?: number | null;
-  place_id?: string | null;
-  place_address?: string | null;
-  place_lat?: number | null;
-  place_lng?: number | null;
-  participant_ids?: number[];
-};
+  id: number
+  group_id: number
+  title: string
+  location: string
+  meeting_time: string
+  status: string
+  created_by?: number | null
+  place_id?: string | null
+  place_address?: string | null
+  place_lat?: number | null
+  place_lng?: number | null
+  participant_ids?: number[]
+}
 
 // 날짜 표시
 function formatDate(value: string) {
-  const date = new Date(value);
+  const date = new Date(value)
 
   if (Number.isNaN(date.getTime())) {
-    return value;
+    return value
   }
 
-  return new Intl.DateTimeFormat("ko-KR", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  return new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
 }
 
 // 서버 시각(ISO)을 날짜·시간 고르기 창이 쓰는 모양(YYYY-MM-DDTHH:mm, 내 시간대)으로 바꾼다
 function toLocalInput(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
 // 한국 시간 기준 날짜(YYYY-MM-DD). 약속 날짜가 오늘을 지나면 지난 기록으로 넘어간다
-const KST_DAY = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Asia/Seoul",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
+const KST_DAY = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
 function kstDay(value: string | number | Date) {
-  return KST_DAY.format(new Date(value));
+  return KST_DAY.format(new Date(value))
 }
 function isUpcoming(iso: string) {
-  const d = new Date(iso);
-  return !Number.isNaN(d.getTime()) && kstDay(d) >= kstDay(Date.now());
+  const d = new Date(iso)
+  return !Number.isNaN(d.getTime()) && kstDay(d) >= kstDay(Date.now())
 }
 
 const memberChip = (selected: boolean): React.CSSProperties => ({
-  display: "inline-flex",
-  alignItems: "center",
+  display: 'inline-flex',
+  alignItems: 'center',
   gap: 6,
-  padding: "6px 12px 6px 6px",
+  padding: '6px 12px 6px 6px',
   borderRadius: 999,
-  border: `1.5px solid ${selected ? "#167A68" : "#cfd8d6"}`,
-  background: selected ? "#e6f3f0" : "#fff",
+  border: `1.5px solid ${selected ? '#167A68' : '#cfd8d6'}`,
+  background: selected ? '#e6f3f0' : '#fff',
   fontSize: 14,
-  cursor: "pointer",
-});
+  cursor: 'pointer',
+})
 
 /** 확정된 약속 하나를 고치는 칸: 날짜·시간, 장소(카카오 검색), 참여한 멤버 */
 function MeetingEditor({
@@ -92,75 +92,75 @@ function MeetingEditor({
   onSaved,
   onCancel,
 }: {
-  groupId: number;
-  meeting: Meeting;
-  members: GroupMember[];
-  nameMode: NameMode;
-  onSaved: (updated: Meeting) => void;
-  onCancel: () => void;
+  groupId: number
+  meeting: Meeting
+  members: GroupMember[]
+  nameMode: NameMode
+  onSaved: (updated: Meeting) => void
+  onCancel: () => void
 }) {
-  const initialWhen = toLocalInput(meeting.meeting_time);
-  const [when, setWhen] = useState(initialWhen);
-  const [pickOpen, setPickOpen] = useState(false);
-  const [picked, setPicked] = useState<PlaceValue | null>(null); // 새로 고른 장소 (없으면 기존 장소 유지)
-  const [searching, setSearching] = useState(false);
-  const search = usePlaceSearch();
+  const initialWhen = toLocalInput(meeting.meeting_time)
+  const [when, setWhen] = useState(initialWhen)
+  const [pickOpen, setPickOpen] = useState(false)
+  const [picked, setPicked] = useState<PlaceValue | null>(null) // 새로 고른 장소 (없으면 기존 장소 유지)
+  const [searching, setSearching] = useState(false)
+  const search = usePlaceSearch()
   // 이미 나간 멤버는 고를 수 없으므로 현재 멤버만 남긴다
   const [selected, setSelected] = useState<number[]>(() =>
     (meeting.participant_ids ?? []).filter((id) =>
       members.some((m) => m.user_id === id),
     ),
-  );
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  )
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
 
-  const placeName = picked?.name ?? meeting.location;
-  const allSelected = members.length > 0 && selected.length === members.length;
+  const placeName = picked?.name ?? meeting.location
+  const allSelected = members.length > 0 && selected.length === members.length
 
   function toggle(userId: number) {
     setSelected((cur) =>
       cur.includes(userId)
         ? cur.filter((id) => id !== userId)
         : [...cur, userId],
-    );
+    )
   }
 
   function stopSearch() {
-    setSearching(false);
-    search.clear();
-    search.setKeyword("");
+    setSearching(false)
+    search.clear()
+    search.setKeyword('')
   }
 
   async function save() {
     if (!when) {
-      setError("약속 날짜와 시간을 정해 주세요.");
-      return;
+      setError('약속 날짜와 시간을 정해 주세요.')
+      return
     }
-    setBusy(true);
-    setError("");
-    const body: Record<string, unknown> = { participant_ids: selected };
-    if (when !== initialWhen) body.meeting_time = new Date(when).toISOString();
+    setBusy(true)
+    setError('')
+    const body: Record<string, unknown> = { participant_ids: selected }
+    if (when !== initialWhen) body.meeting_time = new Date(when).toISOString()
     if (picked) {
-      body.location = picked.name;
-      body.place_id = picked.id || null;
-      body.place_address = picked.address || null;
-      body.place_lat = picked.lat;
-      body.place_lng = picked.lng;
+      body.location = picked.name
+      body.place_id = picked.id || null
+      body.place_address = picked.address || null
+      body.place_lat = picked.lat
+      body.place_lng = picked.lng
     }
     try {
       const updated = await api<Meeting>(
         `/groups/${groupId}/meetings/${meeting.id}`,
         {
-          method: "PATCH",
+          method: 'PATCH',
           body,
         },
-      );
-      onSaved(updated);
+      )
+      onSaved(updated)
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : "약속을 수정하지 못했어요.",
-      );
-      setBusy(false);
+        err instanceof ApiError ? err.message : '약속을 수정하지 못했어요.',
+      )
+      setBusy(false)
     }
   }
 
@@ -179,8 +179,8 @@ function MeetingEditor({
           disabled={busy}
           onClick={() => setPickOpen(true)}
         >
-          <CalIcon />{" "}
-          {when ? formatDate(new Date(when).toISOString()) : "날짜·시간 정하기"}
+          <CalIcon />{' '}
+          {when ? formatDate(new Date(when).toISOString()) : '날짜·시간 정하기'}
         </button>
         {pickOpen && (
           <DateTimePicker
@@ -197,16 +197,16 @@ function MeetingEditor({
           장소
         </p>
         {!searching ? (
-          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
             <span>📍 {placeName}</span>
             <button
               type="button"
               className="btn secondary sm"
               disabled={busy}
               onClick={() => {
-                search.setKeyword(placeName);
-                setSearching(true);
-                void search.run(placeName);
+                search.setKeyword(placeName)
+                setSearching(true)
+                void search.run(placeName)
               }}
             >
               장소 변경
@@ -224,9 +224,9 @@ function MeetingEditor({
                 aria-label="장소 검색"
                 onChange={(e) => search.setKeyword(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    void search.run();
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    void search.run()
                   }
                 }}
               />
@@ -236,7 +236,7 @@ function MeetingEditor({
                 disabled={!search.ready || search.loading}
                 onClick={() => void search.run()}
               >
-                {search.loading ? "…" : "검색"}
+                {search.loading ? '…' : '검색'}
               </button>
               <button
                 type="button"
@@ -254,13 +254,13 @@ function MeetingEditor({
               <ul
                 aria-label="장소 검색 결과"
                 style={{
-                  listStyle: "none",
+                  listStyle: 'none',
                   padding: 0,
                   margin: 0,
-                  display: "grid",
+                  display: 'grid',
                   gap: 6,
                   maxHeight: 240,
-                  overflowY: "auto",
+                  overflowY: 'auto',
                 }}
               >
                 {search.results.map((r) => (
@@ -269,9 +269,9 @@ function MeetingEditor({
                       type="button"
                       className="btn secondary"
                       style={{
-                        width: "100%",
-                        textAlign: "left",
-                        display: "grid",
+                        width: '100%',
+                        textAlign: 'left',
+                        display: 'grid',
                         gap: 2,
                       }}
                       onClick={() => {
@@ -281,8 +281,8 @@ function MeetingEditor({
                           address: r.address,
                           lat: r.lat,
                           lng: r.lng,
-                        });
-                        stopSearch();
+                        })
+                        stopSearch()
                       }}
                     >
                       <strong>{r.name}</strong>
@@ -310,13 +310,13 @@ function MeetingEditor({
               setSelected(allSelected ? [] : members.map((m) => m.user_id))
             }
           >
-            {allSelected ? "전체 해제" : "전체 선택"}
+            {allSelected ? '전체 해제' : '전체 선택'}
           </button>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {members.map((m) => {
-            const on = selected.includes(m.user_id);
-            const name = pickName(m, nameMode);
+            const on = selected.includes(m.user_id)
+            const name = pickName(m, nameMode)
             return (
               <button
                 key={m.user_id}
@@ -332,10 +332,10 @@ function MeetingEditor({
                   image={m.profile_image}
                   size="sm"
                 />
-                {on ? "✓ " : ""}
+                {on ? '✓ ' : ''}
                 {name}
               </button>
-            );
+            )
           })}
         </div>
       </div>
@@ -346,7 +346,7 @@ function MeetingEditor({
         </p>
       )}
 
-      <div className="row" style={{ gap: 8, justifyContent: "flex-end" }}>
+      <div className="row" style={{ gap: 8, justifyContent: 'flex-end' }}>
         <button
           type="button"
           className="btn secondary"
@@ -361,11 +361,11 @@ function MeetingEditor({
           disabled={busy || !when}
           onClick={() => void save()}
         >
-          {busy ? "저장 중…" : "저장"}
+          {busy ? '저장 중…' : '저장'}
         </button>
       </div>
     </div>
-  );
+  )
 }
 
 /** 투표 없이 한 사람이 바로 만드는 확정 약속: 이름, 날짜·시간, 장소, 함께하는 멤버(선택) */
@@ -377,64 +377,64 @@ function MeetingCreateForm({
   onCreated,
   onCancel,
 }: {
-  groupId: number;
-  members: GroupMember[];
-  nameMode: NameMode;
-  initialWhen: string;
-  onCreated: (created: Meeting) => void;
-  onCancel: () => void;
+  groupId: number
+  members: GroupMember[]
+  nameMode: NameMode
+  initialWhen: string
+  onCreated: (created: Meeting) => void
+  onCancel: () => void
 }) {
-  const [title, setTitle] = useState("");
-  const [when, setWhen] = useState(initialWhen);
-  const [pickOpen, setPickOpen] = useState(false);
-  const [placeText, setPlaceText] = useState("");
-  const [picked, setPicked] = useState<PlaceValue | null>(null); // 카카오 검색으로 고른 장소 (직접 적으면 없음)
-  const [searching, setSearching] = useState(false);
-  const search = usePlaceSearch();
-  const [selected, setSelected] = useState<number[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [title, setTitle] = useState('')
+  const [when, setWhen] = useState(initialWhen)
+  const [pickOpen, setPickOpen] = useState(false)
+  const [placeText, setPlaceText] = useState('')
+  const [picked, setPicked] = useState<PlaceValue | null>(null) // 카카오 검색으로 고른 장소 (직접 적으면 없음)
+  const [searching, setSearching] = useState(false)
+  const search = usePlaceSearch()
+  const [selected, setSelected] = useState<number[]>([])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
 
-  const allSelected = members.length > 0 && selected.length === members.length;
+  const allSelected = members.length > 0 && selected.length === members.length
 
   function toggle(userId: number) {
     setSelected((cur) =>
       cur.includes(userId)
         ? cur.filter((id) => id !== userId)
         : [...cur, userId],
-    );
+    )
   }
 
   async function submit() {
-    if (!title.trim()) return setError("약속 이름을 적어 주세요.");
-    if (!when) return setError("날짜와 시간을 정해 주세요.");
+    if (!title.trim()) return setError('약속 이름을 적어 주세요.')
+    if (!when) return setError('날짜와 시간을 정해 주세요.')
     if (!placeText.trim())
-      return setError("장소를 적거나 검색해서 골라 주세요.");
-    setBusy(true);
-    setError("");
+      return setError('장소를 적거나 검색해서 골라 주세요.')
+    setBusy(true)
+    setError('')
     const body: Record<string, unknown> = {
       title: title.trim(),
       location: placeText.trim(),
       meeting_time: new Date(when).toISOString(),
       participant_ids: selected,
-    };
+    }
     if (picked && picked.name === placeText.trim()) {
-      body.place_id = picked.id || null;
-      body.place_address = picked.address || null;
-      body.place_lat = picked.lat;
-      body.place_lng = picked.lng;
+      body.place_id = picked.id || null
+      body.place_address = picked.address || null
+      body.place_lat = picked.lat
+      body.place_lng = picked.lng
     }
     try {
       const created = await api<Meeting>(`/groups/${groupId}/meetings`, {
-        method: "POST",
+        method: 'POST',
         body,
-      });
-      onCreated(created);
+      })
+      onCreated(created)
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : "약속을 만들지 못했어요.",
-      );
-      setBusy(false);
+        err instanceof ApiError ? err.message : '약속을 만들지 못했어요.',
+      )
+      setBusy(false)
     }
   }
 
@@ -470,8 +470,8 @@ function MeetingCreateForm({
           disabled={busy}
           onClick={() => setPickOpen(true)}
         >
-          <CalIcon />{" "}
-          {when ? formatDate(new Date(when).toISOString()) : "날짜·시간 정하기"}
+          <CalIcon />{' '}
+          {when ? formatDate(new Date(when).toISOString()) : '날짜·시간 정하기'}
         </button>
         {pickOpen && (
           <DateTimePicker
@@ -495,31 +495,31 @@ function MeetingCreateForm({
             placeholder="장소 이름을 적고 검색해 보세요 (적기만 해도 돼요)"
             aria-label="장소"
             onChange={(e) => {
-              setPlaceText(e.target.value);
+              setPlaceText(e.target.value)
               if (picked && picked.name !== e.target.value.trim())
-                setPicked(null);
+                setPicked(null)
             }}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                setSearching(true);
-                search.setKeyword(placeText);
-                void search.run(placeText);
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                setSearching(true)
+                search.setKeyword(placeText)
+                void search.run(placeText)
               }
             }}
           />
           <button
             type="button"
             className="btn secondary sm"
-            style={{ flexShrink: 0, whiteSpace: "nowrap" }}
+            style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
             disabled={!search.ready || search.loading}
             onClick={() => {
-              setSearching(true);
-              search.setKeyword(placeText);
-              void search.run(placeText);
+              setSearching(true)
+              search.setKeyword(placeText)
+              void search.run(placeText)
             }}
           >
-            {search.loading ? "…" : "검색"}
+            {search.loading ? '…' : '검색'}
           </button>
         </div>
         {picked && (
@@ -537,13 +537,13 @@ function MeetingCreateForm({
               <ul
                 aria-label="장소 검색 결과"
                 style={{
-                  listStyle: "none",
+                  listStyle: 'none',
                   padding: 0,
                   margin: 0,
-                  display: "grid",
+                  display: 'grid',
                   gap: 6,
                   maxHeight: 240,
-                  overflowY: "auto",
+                  overflowY: 'auto',
                 }}
               >
                 {search.results.map((r) => (
@@ -552,9 +552,9 @@ function MeetingCreateForm({
                       type="button"
                       className="btn secondary"
                       style={{
-                        width: "100%",
-                        textAlign: "left",
-                        display: "grid",
+                        width: '100%',
+                        textAlign: 'left',
+                        display: 'grid',
                         gap: 2,
                       }}
                       onClick={() => {
@@ -564,10 +564,10 @@ function MeetingCreateForm({
                           address: r.address,
                           lat: r.lat,
                           lng: r.lng,
-                        });
-                        setPlaceText(r.name);
-                        setSearching(false);
-                        search.clear();
+                        })
+                        setPlaceText(r.name)
+                        setSearching(false)
+                        search.clear()
                       }}
                     >
                       <strong>{r.name}</strong>
@@ -594,13 +594,13 @@ function MeetingCreateForm({
               setSelected(allSelected ? [] : members.map((m) => m.user_id))
             }
           >
-            {allSelected ? "전체 해제" : "전체 선택"}
+            {allSelected ? '전체 해제' : '전체 선택'}
           </button>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {members.map((m) => {
-            const on = selected.includes(m.user_id);
-            const name = pickName(m, nameMode);
+            const on = selected.includes(m.user_id)
+            const name = pickName(m, nameMode)
             return (
               <button
                 key={m.user_id}
@@ -616,10 +616,10 @@ function MeetingCreateForm({
                   image={m.profile_image}
                   size="sm"
                 />
-                {on ? "✓ " : ""}
+                {on ? '✓ ' : ''}
                 {name}
               </button>
-            );
+            )
           })}
         </div>
       </div>
@@ -630,7 +630,7 @@ function MeetingCreateForm({
         </p>
       )}
 
-      <div className="row" style={{ gap: 8, justifyContent: "flex-end" }}>
+      <div className="row" style={{ gap: 8, justifyContent: 'flex-end' }}>
         <button
           type="button"
           className="btn secondary"
@@ -645,155 +645,155 @@ function MeetingCreateForm({
           disabled={busy}
           onClick={() => void submit()}
         >
-          {busy ? "만드는 중…" : "약속 만들기"}
+          {busy ? '만드는 중…' : '약속 만들기'}
         </button>
       </div>
     </div>
-  );
+  )
 }
 
 export default function GroupMeetingsPage() {
-  const router = useRouter();
+  const router = useRouter()
   // 로그인 확인(안 되어 있으면 /login 으로)과 그룹 멤버 목록
-  const { groupId, me, group, error: groupError } = useGroupContext();
-  const nameMode = useNameMode();
+  const { groupId, me, group, error: groupError } = useGroupContext()
+  const nameMode = useNameMode()
 
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [createWhen, setCreateWhen] = useState("");
-  const [calendarOpen, setCalendarOpen] = useState(false); // 작은 달력을 누르면 큰 달력 창이 열린다
-  const [miniKey, setMiniKey] = useState(0); // 큰 달력을 닫을 때 작은 달력이 최신 표시를 다시 불러오게
-  const createRef = useRef<HTMLElement | null>(null);
+  const [meetings, setMeetings] = useState<Meeting[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [createWhen, setCreateWhen] = useState('')
+  const [calendarOpen, setCalendarOpen] = useState(false) // 작은 달력을 누르면 큰 달력 창이 열린다
+  const [miniKey, setMiniKey] = useState(0) // 큰 달력을 닫을 때 작은 달력이 최신 표시를 다시 불러오게
+  const createRef = useRef<HTMLElement | null>(null)
 
-  const members = group?.members ?? [];
-  const memberById = new Map(members.map((m) => [m.user_id, m]));
+  const members = group?.members ?? []
+  const memberById = new Map(members.map((m) => [m.user_id, m]))
 
   const sortByTime = (list: Meeting[]) =>
     [...list].sort(
       (a, b) =>
         new Date(a.meeting_time).getTime() - new Date(b.meeting_time).getTime(),
-    );
+    )
 
   // 확정된 약속 목록 조회
   const loadMeetings = useCallback(async () => {
     try {
-      const data = await api<Meeting[]>(`/groups/${groupId}/meetings`);
+      const data = await api<Meeting[]>(`/groups/${groupId}/meetings`)
 
       setMeetings(
         sortByTime(
           data.filter(
             (meeting) =>
-              meeting.status?.toLowerCase() === "confirmed" &&
+              meeting.status?.toLowerCase() === 'confirmed' &&
               isUpcoming(meeting.meeting_time),
           ),
         ),
-      );
+      )
 
-      setError("");
+      setError('')
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        router.push("/login");
-        return;
+        router.push('/login')
+        return
       }
 
       setError(
-        err instanceof ApiError ? err.message : "약속을 불러오지 못했습니다.",
-      );
+        err instanceof ApiError ? err.message : '약속을 불러오지 못했습니다.',
+      )
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [groupId, router]);
+  }, [groupId, router])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadMeetings();
-  }, [loadMeetings]);
+    void loadMeetings()
+  }, [loadMeetings])
 
   // 확정된 약속 삭제
   async function deleteMeeting(meetingId: number) {
     const confirmed = window.confirm(
-      "확정된 약속을 삭제할까요?\n지난 기록은 그대로 남아요. (기록은 지난 기록 페이지에서 따로 지울 수 있어요)",
-    );
+      '확정된 약속을 삭제할까요?\n지난 기록은 그대로 남아요. (기록은 지난 기록 페이지에서 따로 지울 수 있어요)',
+    )
 
-    if (!confirmed) return;
+    if (!confirmed) return
 
-    setError("");
-    setNotice("");
+    setError('')
+    setNotice('')
 
     try {
       await api(`/groups/${groupId}/meetings/${meetingId}`, {
-        method: "DELETE",
-      });
+        method: 'DELETE',
+      })
 
-      await loadMeetings();
+      await loadMeetings()
     } catch (err) {
       setError(
         err instanceof ApiError
           ? err.message
-          : "확정된 약속 삭제에 실패했습니다.",
-      );
+          : '확정된 약속 삭제에 실패했습니다.',
+      )
     }
   }
 
   // 약속 만들기 칸 열기 (달력에서 날짜를 눌러 열면 그 날짜가 미리 채워진다)
   function openCreate(day?: string) {
-    setEditingId(null);
-    setNotice("");
-    setCreateWhen(day ? `${day}T12:00` : "");
-    setCreating(true);
+    setEditingId(null)
+    setNotice('')
+    setCreateWhen(day ? `${day}T12:00` : '')
+    setCreating(true)
     setTimeout(
       () =>
         createRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
+          behavior: 'smooth',
+          block: 'start',
         }),
       50,
-    );
+    )
   }
 
   function closeCalendar() {
-    setCalendarOpen(false);
-    setMiniKey((k) => k + 1);
+    setCalendarOpen(false)
+    setMiniKey((k) => k + 1)
   }
 
   useEffect(() => {
-    if (!calendarOpen) return;
+    if (!calendarOpen) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setCalendarOpen(false);
-        setMiniKey((k) => k + 1);
+      if (e.key === 'Escape') {
+        setCalendarOpen(false)
+        setMiniKey((k) => k + 1)
       }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [calendarOpen]);
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [calendarOpen])
 
   async function handleCreated(created: Meeting) {
-    setCreating(false);
-    setNotice(`'${created.title}' 약속을 만들었어요.`);
-    await loadMeetings();
+    setCreating(false)
+    setNotice(`'${created.title}' 약속을 만들었어요.`)
+    await loadMeetings()
   }
 
   function handleSaved(updated: Meeting) {
     // 날짜를 이미 지난 날로 바꾸면 이 목록에서 빠지고 지난 기록으로 넘어간다
-    const moved = !isUpcoming(updated.meeting_time);
+    const moved = !isUpcoming(updated.meeting_time)
     setMeetings((cur) =>
       sortByTime(
         cur
           .map((m) => (m.id === updated.id ? updated : m))
           .filter((m) => isUpcoming(m.meeting_time)),
       ),
-    );
-    setEditingId(null);
+    )
+    setEditingId(null)
     setNotice(
       moved
-        ? "약속을 수정했어요. 날짜가 지나서 지난 기록으로 옮겨졌어요."
-        : "약속을 수정했어요. 지난 기록의 날짜·장소도 함께 바뀌었어요.",
-    );
+        ? '약속을 수정했어요. 날짜가 지나서 지난 기록으로 옮겨졌어요.'
+        : '약속을 수정했어요. 지난 기록의 날짜·장소도 함께 바뀌었어요.',
+    )
   }
 
   return (
@@ -814,11 +814,11 @@ export default function GroupMeetingsPage() {
         className="notice"
         style={{
           marginBottom: 28,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           gap: 16,
-          flexWrap: "wrap",
+          flexWrap: 'wrap',
         }}
       >
         <strong>약속은 여기서 직접 만들고, 투표는 채팅방에서 만들어요.</strong>
@@ -890,7 +890,7 @@ export default function GroupMeetingsPage() {
           ) : meetings.length === 0 ? (
             <div className="card">
               <p className="card-title">
-                {loading ? "불러오는 중…" : "앞으로 예정된 확정 약속이 없어요."}
+                {loading ? '불러오는 중…' : '앞으로 예정된 확정 약속이 없어요.'}
               </p>
             </div>
           ) : (
@@ -898,7 +898,7 @@ export default function GroupMeetingsPage() {
               {meetings.map((meeting) => {
                 const people = (meeting.participant_ids ?? [])
                   .map((id) => memberById.get(id))
-                  .filter((m): m is GroupMember => !!m);
+                  .filter((m): m is GroupMember => !!m)
 
                 return (
                   <article className="card" key={meeting.id}>
@@ -914,15 +914,15 @@ export default function GroupMeetingsPage() {
                     ) : (
                       <div
                         className="row-between"
-                        style={{ gap: 16, flexWrap: "wrap" }}
+                        style={{ gap: 16, flexWrap: 'wrap' }}
                       >
                         <div
                           className="row"
-                          style={{ alignItems: "flex-start" }}
+                          style={{ alignItems: 'flex-start' }}
                         >
                           <span className="avatar lg">
-  <CalIcon size="1.1em" />
-</span>
+                            <CalIcon size="1.1em" />
+                          </span>
 
                           <div>
                             <h3 className="card-title">{meeting.title}</h3>
@@ -932,7 +932,7 @@ export default function GroupMeetingsPage() {
                             </p>
 
                             <p className="muted" style={{ marginTop: 8 }}>
-                              📍 {meeting.location || "장소 미정"}
+                              📍 {meeting.location || '장소 미정'}
                             </p>
 
                             <div style={{ marginTop: 10 }}>
@@ -943,10 +943,10 @@ export default function GroupMeetingsPage() {
                               ) : (
                                 <div
                                   style={{
-                                    display: "flex",
-                                    flexWrap: "wrap",
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
                                     gap: 6,
-                                    alignItems: "center",
+                                    alignItems: 'center',
                                   }}
                                 >
                                   <span className="muted">
@@ -957,8 +957,8 @@ export default function GroupMeetingsPage() {
                                       key={m.user_id}
                                       className="chip"
                                       style={{
-                                        display: "inline-flex",
-                                        alignItems: "center",
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
                                         gap: 4,
                                       }}
                                     >
@@ -978,8 +978,8 @@ export default function GroupMeetingsPage() {
                         </div>
 
                         <div
-                          className="stack"
-                          style={{ alignItems: "flex-end", minWidth: 90 }}
+                          className="stack meet-actions"
+                          style={{ alignItems: 'flex-end', minWidth: 90 }}
                         >
                           <span className="chip">확정</span>
 
@@ -987,8 +987,8 @@ export default function GroupMeetingsPage() {
                             type="button"
                             className="btn secondary sm"
                             onClick={() => {
-                              setNotice("");
-                              setEditingId(meeting.id);
+                              setNotice('')
+                              setEditingId(meeting.id)
                             }}
                           >
                             수정
@@ -1005,7 +1005,7 @@ export default function GroupMeetingsPage() {
                       </div>
                     )}
                   </article>
-                );
+                )
               })}
             </div>
           )}
@@ -1030,21 +1030,21 @@ export default function GroupMeetingsPage() {
           aria-label="함께 가능한 날 찾기"
           onClick={closeCalendar}
           style={{
-            position: "fixed",
+            position: 'fixed',
             inset: 0,
             zIndex: 1000,
-            background: "rgba(20, 35, 38, 0.45)",
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "center",
-            padding: "4vh 16px",
-            overflowY: "auto",
+            background: 'rgba(20, 35, 38, 0.45)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'center',
+            padding: '4vh 16px',
+            overflowY: 'auto',
           }}
         >
           <div
             className="card"
             onClick={(e) => e.stopPropagation()}
-            style={{ width: "min(980px, 100%)" }}
+            style={{ width: 'min(980px, 100%)' }}
           >
             <div className="row-between" style={{ marginBottom: 16 }}>
               <h2 className="section-title">🗓 함께 가능한 날 찾기</h2>
@@ -1063,13 +1063,13 @@ export default function GroupMeetingsPage() {
               nameMode={nameMode}
               meetings={meetings}
               onCreateOnDay={(day) => {
-                closeCalendar();
-                openCreate(day);
+                closeCalendar()
+                openCreate(day)
               }}
             />
           </div>
         </div>
       )}
     </AppShell>
-  );
+  )
 }

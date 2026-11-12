@@ -553,7 +553,7 @@
     /* 위 84px(머리글+여백) + 아래 66px(하단 탭바) 만큼만 빼서, 채팅창 밑에 빈 칸도 없고 더 내려가지도 않게 */
     height: calc(100vh - 150px);
     height: calc(100dvh - 150px - env(safe-area-inset-bottom, 0px));
-    min-height: 420px;
+    min-height: 0;
   }
 
   /* 카톡식 맨 위 그룹 이름 */
@@ -642,11 +642,21 @@
 
 /* 채팅 화면은 탭바 바로 위까지만 쓰고 그 아래로 스크롤되지 않게 (모바일) */
 @media (max-width: 650px) {
-  :global(.content):has(.chatMain) { padding-bottom: calc(66px + env(safe-area-inset-bottom, 0px)); }
+  :global(.content):has(.chatMain) {
+    padding-bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 /* 제목 줄: 왼쪽 제목, 오른쪽 함께 대화 중인 친구 + 바로가기 */
-.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
 @media (max-width: 650px) {
-  .head { display: none; }
+  .head {
+    display: none;
+  }
 }

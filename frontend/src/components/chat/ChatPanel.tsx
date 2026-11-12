@@ -1,8 +1,8 @@
-"use client";
+'use client'
 
-import Link from "next/link";
-import type { GroupDetail, Me } from "@/hooks/useGroupContext";
-import { useGroupMessages } from "@/hooks/useGroupMessages";
+import Link from 'next/link'
+import type { GroupDetail, Me } from '@/hooks/useGroupContext'
+import { useGroupMessages } from '@/hooks/useGroupMessages'
 
 import { useEffect, useState, useRef } from 'react'
 import { pickName, useNameMode } from '@/lib/nameMode'
@@ -24,7 +24,7 @@ import MeetModePanel from './MeetModePanel'
 import VoteCreateModal from './VoteCreateModal'
 import { takeVotePicks } from '@/lib/votePicks'
 import type { PlaceValue } from '@/lib/photos'
-import CalIcon from "@/components/CalIcon";
+import CalIcon from '@/components/CalIcon'
 
 export default function ChatPanel({
   group,
@@ -36,8 +36,20 @@ export default function ChatPanel({
   /** 지난 기록에서 넘어왔을 때: 이 날짜(YYYY-MM-DD)의 대화로 이동 */
   focusDate?: string
 }) {
-  const { messages, loading, sending, status, setStatus, send, deleteMessage, deleteMessages, removePhotos, loadOlder, hasMore, loadingOlder } =
-    useGroupMessages(group.id, me.id, focusDate)
+  const {
+    messages,
+    loading,
+    sending,
+    status,
+    setStatus,
+    send,
+    deleteMessage,
+    deleteMessages,
+    removePhotos,
+    loadOlder,
+    hasMore,
+    loadingOlder,
+  } = useGroupMessages(group.id, me.id, focusDate)
 
   const { start, starting } = useStartPlacePlan(group.id, setStatus)
   const meet = useLocationShare(group.id)
@@ -74,13 +86,12 @@ export default function ChatPanel({
   }, [group.id])
   const nameMode = useNameMode()
 
-
   const names = new Map(
     group.members.map((m) => [m.user_id, pickName(m, nameMode)]),
-  );
-  const nameOf = (userId: number) => names.get(userId) ?? "알 수 없음";
+  )
+  const nameOf = (userId: number) => names.get(userId) ?? '알 수 없음'
   const imageOf = (userId: number) =>
-    group.members.find((m) => m.user_id === userId)?.profile_image ?? null;
+    group.members.find((m) => m.user_id === userId)?.profile_image ?? null
 
   const isOwner = group.my_role === 'owner'
 
@@ -89,9 +100,14 @@ export default function ChatPanel({
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState<Set<number>>(new Set())
   // 묶어서 보낸 사진에서 한 장씩 따로 고른 것: 말풍선 번호 -> 첨부 번호들
-  const [selectedPhotos, setSelectedPhotos] = useState<Map<number, Set<number>>>(new Map())
+  const [selectedPhotos, setSelectedPhotos] = useState<
+    Map<number, Set<number>>
+  >(new Map())
   const [deleting, setDeleting] = useState(false)
-  const photoCount = Array.from(selectedPhotos.values()).reduce((n, s) => n + s.size, 0)
+  const photoCount = Array.from(selectedPhotos.values()).reduce(
+    (n, s) => n + s.size,
+    0,
+  )
   const pickedTotal = selected.size + photoCount
   const mine = (m: { user_id: number }) => Number(m.user_id) === me.id
   const deletable = messages.filter((m) => mine(m) || isOwner)
@@ -115,7 +131,9 @@ export default function ChatPanel({
         next.delete(msgId)
         return next
       })
-      setSelectedPhotos((cur) => new Map(cur).set(msgId, new Set(allIds.filter((i) => i !== attId))))
+      setSelectedPhotos((cur) =>
+        new Map(cur).set(msgId, new Set(allIds.filter((i) => i !== attId))),
+      )
       return
     }
     const set = new Set(selectedPhotos.get(msgId) ?? [])
@@ -151,9 +169,20 @@ export default function ChatPanel({
   async function deleteSelected() {
     const ids = Array.from(selected)
     if (!ids.length && photoCount === 0) return
-    const hasPhoto = photoCount > 0 || messages.some((m) => selected.has(m.id) && (m.text ?? '').startsWith('📷'))
-    const parts = [ids.length ? `메시지 ${ids.length}개` : '', photoCount ? `사진 ${photoCount}장` : ''].filter(Boolean).join('와 ')
-    const q = `선택한 ${parts}를 삭제할까요?\n모든 팀원에게서 사라져요.` + (hasPhoto ? '\n사진은 사진 페이지에서도 함께 지워져요.' : '')
+    const hasPhoto =
+      photoCount > 0 ||
+      messages.some(
+        (m) => selected.has(m.id) && (m.text ?? '').startsWith('📷'),
+      )
+    const parts = [
+      ids.length ? `메시지 ${ids.length}개` : '',
+      photoCount ? `사진 ${photoCount}장` : '',
+    ]
+      .filter(Boolean)
+      .join('와 ')
+    const q =
+      `선택한 ${parts}를 삭제할까요?\n모든 팀원에게서 사라져요.` +
+      (hasPhoto ? '\n사진은 사진 페이지에서도 함께 지워져요.' : '')
     if (!window.confirm(q)) return
     setDeleting(true)
     let ok = true
@@ -198,30 +227,49 @@ export default function ChatPanel({
   // 사진/문서 한 개를 올린다. 성공하면 첨부 번호와 파일 이름을, 실패하면 null
   async function uploadOne(kind: 'image' | 'file', file: File, progress = '') {
     if (file.size > MAX_BYTES[kind]) {
-      setStatus(`${MAX_BYTES[kind] / 1024 / 1024}MB 이하 ${kind === 'image' ? '사진' : '파일'}만 보낼 수 있어요.`)
+      setStatus(
+        `${MAX_BYTES[kind] / 1024 / 1024}MB 이하 ${kind === 'image' ? '사진' : '파일'}만 보낼 수 있어요.`,
+      )
       return null
     }
     const tail = progress ? ` (${progress})` : ''
-    setStatus((kind === 'image' ? '사진을 올리는 중이에요…' : '파일을 올리는 중이에요…') + tail)
+    setStatus(
+      (kind === 'image'
+        ? '사진을 올리는 중이에요…'
+        : '파일을 올리는 중이에요…') + tail,
+    )
     try {
       const form = new FormData()
       form.append('file', file)
       form.append('kind', kind)
-      return await api<{ id: number; filename: string }>(`/groups/${group.id}/chat-files`, {
-        method: 'POST',
-        body: form,
-      })
+      return await api<{ id: number; filename: string }>(
+        `/groups/${group.id}/chat-files`,
+        {
+          method: 'POST',
+          body: form,
+        },
+      )
     } catch (err) {
-      setStatus(err instanceof ApiError ? err.message : '파일을 보내지 못했어요.')
+      setStatus(
+        err instanceof ApiError ? err.message : '파일을 보내지 못했어요.',
+      )
       return null
     }
   }
 
   // 올린 뒤 채팅에 첨부 메시지(마지막 줄 = attach:번호)를 보낸다. 보냈으면 true
-  async function uploadAndSend(kind: 'image' | 'file', file: File, progress = ''): Promise<boolean> {
+  async function uploadAndSend(
+    kind: 'image' | 'file',
+    file: File,
+    progress = '',
+  ): Promise<boolean> {
     const att = await uploadOne(kind, file, progress)
     if (!att) return false
-    await send(kind === 'image' ? `📷 사진\nattach:${att.id}` : `📎 ${att.filename}\nattach:${att.id}`)
+    await send(
+      kind === 'image'
+        ? `📷 사진\nattach:${att.id}`
+        : `📎 ${att.filename}\nattach:${att.id}`,
+    )
     setStatus('')
     return true
   }
@@ -229,10 +277,16 @@ export default function ChatPanel({
   // 사진을 여러 장 골랐을 때: 묶어서 한 말풍선으로 보내거나, 한 장씩 따로 보낸다.
   // (한 장이 실패해도 나머지는 계속 보낸다)
   const MAX_MULTI = 27
-  async function uploadMany(kind: 'image' | 'file', files: File[], opts?: { bundle?: boolean }) {
+  async function uploadMany(
+    kind: 'image' | 'file',
+    files: File[],
+    opts?: { bundle?: boolean },
+  ) {
     const list = files.slice(0, MAX_MULTI)
     const extra =
-      files.length > MAX_MULTI ? ` 한 번에 최대 ${MAX_MULTI}장까지라 나머지 ${files.length - MAX_MULTI}장은 보내지 않았어요.` : ''
+      files.length > MAX_MULTI
+        ? ` 한 번에 최대 ${MAX_MULTI}장까지라 나머지 ${files.length - MAX_MULTI}장은 보내지 않았어요.`
+        : ''
 
     if (kind === 'image') {
       // 카톡처럼: 바로 '보내는 중' 말풍선을 띄우고, 사진을 줄여서 5장씩 동시에 올린다
@@ -240,7 +294,9 @@ export default function ChatPanel({
       const ok = list.filter((f) => f.size <= MAX_BYTES.image)
       setStatus(
         [
-          tooBig.length ? `20MB가 넘는 사진 ${tooBig.length}장은 보내지 않았어요.` : '',
+          tooBig.length
+            ? `20MB가 넘는 사진 ${tooBig.length}장은 보내지 않았어요.`
+            : '',
           extra.trim(),
         ]
           .filter(Boolean)
@@ -252,21 +308,29 @@ export default function ChatPanel({
 
     let failed = 0
     for (let i = 0; i < list.length; i += 1) {
-      const ok = await uploadAndSend(kind, list[i], list.length > 1 ? `${i + 1}/${list.length}` : '')
+      const ok = await uploadAndSend(
+        kind,
+        list[i],
+        list.length > 1 ? `${i + 1}/${list.length}` : '',
+      )
       if (!ok) failed += 1
     }
     if (list.length > 1) {
       const sent = list.length - failed
-      setStatus(failed ? `${sent}장을 보냈고 ${failed}장은 보내지 못했어요.${extra}` : extra.trim())
+      setStatus(
+        failed
+          ? `${sent}장을 보냈고 ${failed}장은 보내지 못했어요.${extra}`
+          : extra.trim(),
+      )
     } else if (extra) {
       setStatus(extra.trim())
     }
   }
 
   const onTool = (tool: string) => {
-    if (tool === "장소 선택") {
-      void start();
-      return;
+    if (tool === '장소 선택') {
+      void start()
+      return
     }
 
     if (tool === '투표') {
@@ -283,8 +347,8 @@ export default function ChatPanel({
       return
     }
 
-    setStatus(`${tool} 기능은 다음 단계에서 연결할 예정이에요.`);
-  };
+    setStatus(`${tool} 기능은 다음 단계에서 연결할 예정이에요.`)
+  }
 
   // 모바일: 채팅창 아래 끝을 하단 탭바 바로 위에 딱 맞춘다.
   // 폰마다 탭바 높이가 달라서 CSS 숫자만으로는 밑에 빈 칸이 남을 수 있어, 화면 크기가 바뀔 때만 한 번 재서 맞춘다
@@ -298,18 +362,29 @@ export default function ChatPanel({
     // 하단 탭바: <nav> 자신이나 그 부모 중 화면에 고정(fixed)된 것
     const navEl = document.querySelector('nav')
     let nav: HTMLElement | null = navEl
-    while (nav && getComputedStyle(nav).position !== 'fixed') nav = nav.parentElement
+    while (nav && getComputedStyle(nav).position !== 'fixed')
+      nav = nav.parentElement
     const fit = () => {
       if (!mq.matches || !nav) {
         el.style.removeProperty('height')
         host?.style.removeProperty('padding-bottom')
         return
       }
-      const navTop = (navEl ?? nav).getBoundingClientRect().top
-      const top = el.getBoundingClientRect().top + window.scrollY
+      const viewport = window.visualViewport
+      const visibleBottom = viewport
+        ? viewport.offsetTop + viewport.height
+        : window.innerHeight
+
+      const navTop = nav.getBoundingClientRect().top
+      const top = el.getBoundingClientRect().top
+      const bottom = Math.min(navTop, visibleBottom)
       const gap = 6
-      el.style.setProperty('height', `${Math.max(420, Math.round(navTop - top - gap))}px`, 'important')
-      host?.style.setProperty('padding-bottom', `${Math.round(window.innerHeight - navTop + gap)}px`, 'important')
+
+      el.style.setProperty(
+        'height',
+        `${Math.max(0, Math.floor(bottom - top - gap))}px`,
+        'important',
+      )
     }
     fit()
     // 폰에서는 주소창이 접히거나 글꼴이 늦게 뜨면서 높이가 한참 뒤에 안정되기도 해서, 처음 몇 번 더 맞춘다
@@ -317,7 +392,8 @@ export default function ChatPanel({
     window.addEventListener('resize', fit)
     window.addEventListener('orientationchange', fit)
     window.visualViewport?.addEventListener('resize', fit)
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null
+    const ro =
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null
     if (nav) ro?.observe(nav)
     ro?.observe(document.body)
     return () => {
@@ -370,7 +446,9 @@ export default function ChatPanel({
 
           {focusDate && (
             <div className={styles.banner}>
-              <span><CalIcon /> {formatDateBand(focusDate)} 대화로 이동했어요.</span>
+              <span>
+                <CalIcon /> {formatDateBand(focusDate)} 대화로 이동했어요.
+              </span>
               <Link href={`/groups/${group.id}/chat`} className="link-arrow">
                 최신 대화 보기 →
               </Link>
@@ -381,7 +459,11 @@ export default function ChatPanel({
 
           {selectMode && (
             <p className={sel.hint}>
-              지울 메시지를 눌러서 고르세요. 묶어 보낸 사진은 사진을 하나씩 눌러서 그 사진만 고를 수도 있어요. 그만하려면 아래의 “취소하고 채팅으로 돌아가기”(또는 Esc)를 누르세요. 내가 보낸 메시지만 고를 수 있어요{isOwner ? ' (방장은 모두)' : ''}. 최대 {MAX_SELECT}개까지 선택할 수 있어요.
+              지울 메시지를 눌러서 고르세요. 묶어 보낸 사진은 사진을 하나씩
+              눌러서 그 사진만 고를 수도 있어요. 그만하려면 아래의 “취소하고
+              채팅으로 돌아가기”(또는 Esc)를 누르세요. 내가 보낸 메시지만 고를
+              수 있어요{isOwner ? ' (방장은 모두)' : ''}. 최대 {MAX_SELECT}
+              개까지 선택할 수 있어요.
             </p>
           )}
 
@@ -416,7 +498,9 @@ export default function ChatPanel({
             <section className={sel.dock} aria-label="선택한 메시지 삭제">
               <div className={sel.dockRow}>
                 <span className={sel.count}>
-                  {selected.size > 0 || photoCount === 0 ? `메시지 ${selected.size}개` : ''}
+                  {selected.size > 0 || photoCount === 0
+                    ? `메시지 ${selected.size}개`
+                    : ''}
                   {selected.size > 0 && photoCount > 0 ? ' · ' : ''}
                   {photoCount > 0 ? `사진 ${photoCount}장` : ''} 선택됨
                 </span>
@@ -427,13 +511,22 @@ export default function ChatPanel({
                     setSelected(
                       selected.size >= Math.min(deletable.length, MAX_SELECT)
                         ? new Set()
-                        : new Set(deletable.slice(-MAX_SELECT).map((m) => m.id)),
+                        : new Set(
+                            deletable.slice(-MAX_SELECT).map((m) => m.id),
+                          ),
                     )
                   }
                 >
-                  {deletable.length > 0 && selected.size >= Math.min(deletable.length, MAX_SELECT) ? '선택 해제' : '전체 선택'}
+                  {deletable.length > 0 &&
+                  selected.size >= Math.min(deletable.length, MAX_SELECT)
+                    ? '선택 해제'
+                    : '전체 선택'}
                 </button>
-                <button type="button" className="btn secondary sm" onClick={leaveSelect}>
+                <button
+                  type="button"
+                  className="btn secondary sm"
+                  onClick={leaveSelect}
+                >
                   취소하고 채팅으로 돌아가기
                 </button>
                 <button
@@ -484,5 +577,5 @@ export default function ChatPanel({
         />
       )}
     </>
-  );
+  )
 }
